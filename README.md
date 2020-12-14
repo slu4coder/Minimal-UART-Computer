@@ -1,7 +1,10 @@
 # Minimal-UART-Computer
 Build information concerning my educational 'Minimal UART CPU' design (see YouTube video).
 
-Hi there, I built my own Computer from scratch - using nothing but TTL chips, because, well, that's what I wanted to do, I guess! I wanted a CPU that is easy to understand, fun to build and powerful enough to allow for programming educational stuff and little games on it. Ah, and by the way - it should be as simple as possible - sort of the "Simplest Usable Personal Computer Ever". Well, in case you're interested, this repo aims to provide you with everything you need to follow my one-and-a-half year journey down this rabbit hole. 
+Hi there, I built my own Computer from scratch - using nothing but TTL chips, because, well, that's what I wanted to do, I guess! I wanted
+a CPU that is easy to understand, fun to build and powerful enough to allow for programming educational stuff and little games on it.
+Ah, and by the way - it should be as simple as possible - sort of the "Simplest Usable Personal Computer Ever". Well, in case you're
+interested, this repo aims to provide you with everything you need to follow my one-and-a-half year journey down this rabbit hole. 
 
 WHAT YOU GET HERE:
 ● Block diagram of the CPU and overview it's instruction set
