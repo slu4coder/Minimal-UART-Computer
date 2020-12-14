@@ -45,7 +45,9 @@ TECHNICAL SPECIFICATION:
   ● Built from 74HCxx TTL logic on 120mm x 190mm PCB
 
 
-I jope you find this information useful, educational or otherwise interesting. I'd love to hear about you build, so meet me on YouTube:
+I hope you find this information useful, educational or otherwise interesting. I'd love to hear about you build, so meet me on YouTube.
+
+https://www.youtube.com/channel/UCXYQcMpUBT3aaQKfmAVJNow
 
 Cheers,
 Slu4
