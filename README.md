@@ -1,5 +1,4 @@
-# Minimal-UART-Computer
-Build information concerning my educational 'Minimal UART CPU' design (see YouTube video).
+# Minimal UART Computer
 
 Hi there, I built my own Computer from scratch - using nothing but TTL chips, because, well, that's what I wanted to do, I guess! I wanted
 a CPU that is easy to understand, fun to build and powerful enough to allow for programming educational stuff and little games on it.
