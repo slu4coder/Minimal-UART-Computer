@@ -1,0 +1,417 @@
+; 64-Bit Calculator written by Carsten Herting (2020)
+
+*=$2000
+                LDI $fe STA $7fff		; init stack
+
+start:					LDI <Text1 STS -3 LDI >Text1 STS -4 JPS PrintText
+								JPS ReadLine				; read in a number
+								LDI <$7e90 STS -3		; parse a number
+								LDI >$7e90 STS -4
+								JPS Int64_Parse			; read into Int64 register
+								LDI <MyA STS -3			; save the result in A
+								LDI >MyA STS -4
+								JPS Int64_Get
+
+								LDI <Text2 STS -3 LDI >Text2 STS -4 JPS PrintText
+								WIN PHS             ; push operator on stack
+                OUT JPS WaitOnUART LDI 10 OUT JPS WaitOnUART
+
+								LDI <Text1 STS -3 LDI >Text1 STS -4 JPS PrintText
+								JPS ReadLine				; read in a number
+								LDI <$7e90 STS -3		; parse a number
+								LDI >$7e90 STS -4
+								JPS Int64_Parse			; read into Int64 register
+								LDI <MyB STS -3			; save the result in B
+								LDI >MyB STS -4
+								JPS Int64_Get
+
+								LDI <MyA STS -3
+								LDI >MyA STS -4
+								JPS Int64_Set
+								LDI <MyB STS -3
+								LDI >MyB STS -4
+								JPS Int64_SetB
+
+								PLS                 ; pull operator from stack
+								CPI '-' BEQ minus
+								CPI '*' BEQ multi
+								CPI '/' BEQ divide
+	plus:						JPS Int64_Add			; add to Int64 register
+									JPA output
+	minus:				JPS Int64_Sub				; add to Int64 register
+								JPA output
+	multi:					JPS Int64_Mul
+									JPA output
+	divide:				JPS Int64_Div				; Int64_Div
+
+	output:				LDI <Text3 STS -3 LDI >Text3 STS -4 JPS PrintText
+								JPS Int64_Print
+                LDI 10 OUT JPS WaitOnUART LDI 10 OUT JPS WaitOnUART
+
+								JPA start
+
+
+Text1:					"Enter number ", 0
+Text2:					"Type + - * / ", 0
+Text3:					"           = ", 0
+
+Int64_Parse:		LDS -1 STA int64ptr+0						  ; reads in a decimal value
+								LDS -2 STA int64ptr+1						  ; pointing to input line
+								CLW int64A+0										  ; clear the 64bit A register
+								CLW int64A+2
+								CLW int64A+4
+								CLW int64A+6
+								CLB int64nflag									  ; parse for negative sign
+								LDI '-'
+								CPR int64ptr
+								BNE nextdigit
+									INB int64nflag								  ; mark number as negative
+									INW int64ptr									  ; move to next digit
+	nextdigit:		LDR int64ptr										  ; PARSE FOR POSITIVE DIGITS
+								SBI 48
+								BCC nodigit
+	nullorabove:	CPI 10
+								BCS nodigit
+									PHS															; store last digit on stack
+									JPS Int64_Left									; multiply A with 10 (10*A = 2*A + 8*A)
+									LDA int64A+0 STA int64B+0 LDA int64A+1 STA int64B+1		; B = 2*A
+									LDA int64A+2 STA int64B+2 LDA int64A+3 STA int64B+3
+									LDA int64A+4 STA int64B+4 LDA int64A+5 STA int64B+5
+									LDA int64A+6 STA int64B+6 LDA int64A+7 STA int64B+7
+									JPS Int64_Left
+									JPS Int64_Left
+									LDI <int64B STS -3							; compute 8*A + 2*A
+									LDI >int64B STS -4
+									JPS Int64_Add
+									PLS															; get last digit from stack
+									ADW int64A+0 LDI 0 ACW int64A+2 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6		; add last digit to A
+									INW int64ptr
+									JPA nextdigit
+	nodigit:			DEB int64nflag
+								BCC notneg
+									JPS Int64_NegA
+	notneg:				RTS
+
+Int64_Left:			LDA int64A+0 LSL STA int64A+0			; shift one step left
+								LDA int64A+1 ROL STA int64A+1
+								LDA int64A+2 ROL STA int64A+2
+								LDA int64A+3 ROL STA int64A+3
+								LDA int64A+4 ROL STA int64A+4
+								LDA int64A+5 ROL STA int64A+5
+								LDA int64A+6 ROL STA int64A+6
+								LDA int64A+7 ROL STA int64A+7
+								RTS
+
+Int64_Set:			LDS -1 STA int64ptr+0							; set the A register
+								LDS -2 STA int64ptr+1
+								LDR int64ptr STA int64A+0 INW int64ptr
+								LDR int64ptr STA int64A+1 INW int64ptr
+								LDR int64ptr STA int64A+2 INW int64ptr
+								LDR int64ptr STA int64A+3 INW int64ptr
+								LDR int64ptr STA int64A+4 INW int64ptr
+								LDR int64ptr STA int64A+5 INW int64ptr
+								LDR int64ptr STA int64A+6 INW int64ptr
+								LDR int64ptr STA int64A+7
+								RTS
+
+Int64_SetB:			LDS -1 STA int64ptr+0							; set the A register
+								LDS -2 STA int64ptr+1
+								LDR int64ptr STA int64B+0 INW int64ptr
+								LDR int64ptr STA int64B+1 INW int64ptr
+								LDR int64ptr STA int64B+2 INW int64ptr
+								LDR int64ptr STA int64B+3 INW int64ptr
+								LDR int64ptr STA int64B+4 INW int64ptr
+								LDR int64ptr STA int64B+5 INW int64ptr
+								LDR int64ptr STA int64B+6 INW int64ptr
+								LDR int64ptr STA int64B+7
+								RTS
+
+Int64_Get:			LDS -1 STA int64ptr+0							; copy the A register
+								LDS -2 STA int64ptr+1
+								LDA int64A+0 STR int64ptr INW int64ptr
+								LDA int64A+1 STR int64ptr INW int64ptr
+								LDA int64A+2 STR int64ptr INW int64ptr
+								LDA int64A+3 STR int64ptr INW int64ptr
+								LDA int64A+4 STR int64ptr INW int64ptr
+								LDA int64A+5 STR int64ptr INW int64ptr
+								LDA int64A+6 STR int64ptr INW int64ptr
+								LDA int64A+7 STR int64ptr
+								RTS
+
+Int64_Add:			LDA int64B+0 ADW int64A+0 LDI 0 ACW int64A+2 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6									LDA int64A+8 ROL STA int64A+8
+								LDA int64B+1 ADA int64A+1 STA int64A+1 LDI 0 ACW int64A+2 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6		LDA int64A+8 ROL STA int64A+8
+								LDA int64B+2 ADW int64A+2 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6																			LDA int64A+8 ROL STA int64A+8
+								LDA int64B+3 ADA int64A+3 STA int64A+3 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6												LDA int64A+8 ROL STA int64A+8
+								LDA int64B+4 ADW int64A+4 LDI 0 ACW int64A+6																													LDA int64A+8 ROL STA int64A+8
+								LDA int64B+5 ADA int64A+5 STA int64A+5 LDI 0 ACW int64A+6																						LDA int64A+8 ROL STA int64A+8
+								LDA int64B+6 ADW int64A+6																																							LDA int64A+8 ROL STA int64A+8
+								LDA int64B+7 ADA int64A+7 STA int64A+7																																LDA int64A+8 ROL STA int64A+8
+								RTS
+
+Int64_Sub:			LDA int64B+0 SBW int64A+0 LDI 0 SCW int64A+2 LDI 0 SCW int64A+4 LDI 0 SCW int64A+6									LDA int64A+8 ROL STA int64A+8
+								LDA int64A+1 SBA int64B+1 STA int64A+1 LDI 0 SCW int64A+2 LDI 0 SCW int64A+4 LDI 0 SCW int64A+6		LDA int64A+8 ROL STA int64A+8
+								LDA int64B+2 SBW int64A+2 LDI 0 SCW int64A+4 LDI 0 SCW int64A+6																			LDA int64A+8 ROL STA int64A+8
+								LDA int64A+3 SBA int64B+3 STA int64A+3 LDI 0 SCW int64A+4 LDI 0 SCW int64A+6												LDA int64A+8 ROL STA int64A+8
+								LDA int64B+4 SBW int64A+4 LDI 0 SCW int64A+6																													LDA int64A+8 ROL STA int64A+8
+								LDA int64A+5 SBA int64B+5 STA int64A+5 LDI 0 SCW int64A+6																						LDA int64A+8 ROL STA int64A+8
+								LDA int64B+6 SBW int64A+6																																							LDA int64A+8 ROL STA int64A+8
+								LDA int64A+7 SBA int64B+7 STA int64A+7																																LDA int64A+8 ROL STA int64A+8
+								RTS
+
+Int64_NegA:		  NEW int64A+6												; negate A
+								NEW int64A+4 LDI 0 SCW int64A+6
+								NEW int64A+2 LDI 0 SCW int64A+4 LDI 0 SCW int64A+6
+								NEW int64A+0 LDI 0 SCW int64A+2 LDI 0 SCW int64A+4 LDI 0 SCW int64A+6
+								RTS
+
+Int64_NegB:		  NEW int64B+6												; negate B
+								NEW int64B+4 LDI 0 SCW int64B+6
+								NEW int64B+2 LDI 0 SCW int64B+4 LDI 0 SCW int64B+6
+								NEW int64B+0 LDI 0 SCW int64B+2 LDI 0 SCW int64B+4 LDI 0 SCW int64B+6
+								RTS
+
+Int64_Mul:			LDA int64A+0 STA int64C+0 LDA int64A+1 STA int64C+1		; copy A factor into C (C will be shifted right)
+								LDA int64A+2 STA int64C+2 LDA int64A+3 STA int64C+3
+								LDA int64A+4 STA int64C+4 LDA int64A+5 STA int64C+5
+								LDA int64A+6 STA int64C+6 LDA int64A+7 STA int64C+7
+								CLW int64A+0	CLW int64A+2 CLW int64A+4	CLW int64A+6		; clear A								
+								LDI 64 STA int64count
+  multloop:			LDA int64C+7 LSR STA int64C+7			; shift C one step right
+								LDA int64C+6 ROR STA int64C+6
+								LDA int64C+5 ROR STA int64C+5
+								LDA int64C+4 ROR STA int64C+4
+								LDA int64C+3 ROR STA int64C+3
+								LDA int64C+2 ROR STA int64C+2
+								LDA int64C+1 ROR STA int64C+1
+								LDA int64C+0 ROR STA int64C+0			; lowest bit is now in carry flag
+								BCC multbitoff
+									JPS Int64_Add											; adds current B to accumulator A
+  multbitoff:		LDA int64B+0 LSL STA int64B+0			; shift B one step left
+								LDA int64B+1 ROL STA int64B+1
+								LDA int64B+2 ROL STA int64B+2
+								LDA int64B+3 ROL STA int64B+3
+								LDA int64B+4 ROL STA int64B+4
+								LDA int64B+5 ROL STA int64B+5
+								LDA int64B+6 ROL STA int64B+6
+								LDA int64B+7 ROL STA int64B+7
+								DEB int64count
+								BNE multloop
+									RTS
+
+Int64_Div:			CLB int64nflag											; clear the sign byte (the lowest)
+								LDI 0 ADA int64A+7									; make A and B positive, evaluate the sign of result
+								BPL divanotneg											
+									INB int64nflag										; store a sign
+									JPS Int64_NegA									; negate A
+	divanotneg:		LDI 0 ADA int64B+7 BPL divbnotneg
+									INB int64nflag										; store a(nother) sign
+									JPS Int64_NegB									; negate B
+	divbnotneg:		LDA int64B+0 STA int64B+4					; move the lower 32 bits of B 32 steps up
+								LDA int64B+1 STA int64B+5
+								LDA int64B+2 STA int64B+6
+								LDA int64B+3 STA int64B+7
+								CLW int64B+0 CLW int64B+2					; clear lowest 32 bits of B
+								CLW int64E+0 CLW int64E+2	CLW int64E+4 CLW int64E+6		; clear result E
+								LDI 32 STA int64count									; pre-init the shift counter (needs modification)
+	divup:				LDA int64B+7 LSL LSL BCS divloop	; is B "ganz oben"? (oberstes bit ist ja immer 0, da B positiv)
+									INB int64count											; increase number of shifts
+									LDA int64B+4 LSL STA int64B+4		; shift upper B one step up
+									LDA int64B+5 ROL STA int64B+5
+									LDA int64B+6 ROL STA int64B+6
+									LDA int64B+7 ROL STA int64B+7
+									JPA divup
+	divloop:			LDA int64A+0 STA int64C+0 LDA int64A+1 STA int64C+1		; copy A to C
+								LDA int64A+2 STA int64C+2 LDA int64A+3 STA int64C+3
+								LDA int64A+4 STA int64C+4 LDA int64A+5 STA int64C+5
+								LDA int64A+6 STA int64C+6 LDA int64A+7 STA int64C+7
+								JPS Int64_Sub																							; A = A - B
+								LDA int64A+8 CPI 255
+								BEQ divcarry0
+									LDA int64C+0 STA int64A+0 LDA int64C+1 STA int64A+1	; restore A from C
+									LDA int64C+2 STA int64A+2 LDA int64C+3 STA int64A+3
+									LDA int64C+4 STA int64A+4 LDA int64C+5 STA int64A+5
+									LDA int64C+6 STA int64A+6 LDA int64C+7 STA int64A+7
+									CLC																; B does not fit in A => shift "0" into E
+									JPA divresult	
+	divcarry0:		SEC																	; B fits in A => shift "1" into E
+	divresult:		LDA int64E+0 ROL STA int64E+0			; E = E<<1 | C (1: B fit in A, 0: B does not fit into A)
+								LDA int64E+1 ROL STA int64E+1
+								LDA int64E+2 ROL STA int64E+2
+								LDA int64E+3 ROL STA int64E+3
+								LDA int64E+4 ROL STA int64E+4
+								LDA int64E+5 ROL STA int64E+5
+								LDA int64E+6 ROL STA int64E+6
+								LDA int64E+7 ROL STA int64E+7
+								LDA int64B+7 LSR STA int64B+7			; shift B one step down
+								LDA int64B+6 ROR STA int64B+6
+								LDA int64B+5 ROR STA int64B+5
+								LDA int64B+4 ROR STA int64B+4
+								LDA int64B+3 ROR STA int64B+3
+								LDA int64B+2 ROR STA int64B+2
+								LDA int64B+1 ROR STA int64B+1
+								LDA int64B+0 ROR STA int64B+0
+								DEB int64count
+								BCS divloop
+									LDA int64E+0 STA int64A+0					; move result back into A
+									LDA int64E+1 STA int64A+1
+									LDA int64E+2 STA int64A+2
+									LDA int64E+3 STA int64A+3
+									LDA int64E+4 STA int64A+4
+									LDA int64E+5 STA int64A+5
+									LDA int64E+6 STA int64A+6
+									LDA int64E+7 STA int64A+7
+									LDA int64nflag LSR
+									BCC divallnotneg
+										JPS Int64_NegA
+	divallnotneg:		RTS
+
+Int64_Print:		LDA int64A+0 STA int64C+0 LDA int64A+1 STA int64C+1		; copy A to C
+								LDA int64A+2 STA int64C+2 LDA int64A+3 STA int64C+3
+								LDA int64A+4 STA int64C+4 LDA int64A+5 STA int64C+5
+								LDA int64A+6 STA int64C+6 LDA int64A+7 STA int64C+7
+								CLB int64nflag											; prints out P register (thereby destroying it)
+								LDI 0 PHS															; push string terminator on stack
+								ADA int64C+7												; check MSB
+								BPL Dec64start											; positive Zahl => print unsigned
+					        INB int64nflag										; set the negative sign
+									NEW int64C+6											; negate C
+									NEW int64C+4 LDI 0 SCW int64C+6
+									NEW int64C+2 LDI 0 SCW int64C+4 LDI 0 SCW int64C+6
+									NEW int64C+0 LDI 0 SCW int64C+2 LDI 0 SCW int64C+4 LDI 0 SCW int64C+6
+	Dec64start:		LDI 64 STA int64count							; PRINT A POSITIVE NUMBER
+								CLB int64C+8												; clear upper register and carry store
+	Dec64shift:		LDA int64C+8 ROL		  							; activate stored carry flag (initially C=0)
+								LDA int64C+0 ROL STA int64C+0			; shift in C and shift everything one step up
+								LDA int64C+1 ROL STA int64C+1
+								LDA int64C+2 ROL STA int64C+2
+								LDA int64C+3 ROL STA int64C+3
+								LDA int64C+4 ROL STA int64C+4
+								LDA int64C+5 ROL STA int64C+5
+								LDA int64C+6 ROL STA int64C+6
+								LDA int64C+7 ROL STA int64C+7
+								LDA int64C+8 ROL STA int64C+8			; shift C into "remember" and shift an old carry out
+								CPI 10
+								BCC Dec64done												; 10 did not went into => do not set highest bit as carry
+									ADI 118 STA int64C+8			        ; 10 went into it => subtract 10 and set highest bit as carry (-10 +128)
+	Dec64done:		DEB int64count
+								BNE Dec64shift
+									LDA int64C+8 LSL LSR ADI '0' PHS	; erase a possible stored carry and push remainder as char on stack
+									LDA int64C+8 ROL			  					; restore stored carry flag
+									LDA int64C+0 ROL STA int64C+0		; shift in C and shift everything one step up
+									LDA int64C+1 ROL STA int64C+1
+									LDA int64C+2 ROL STA int64C+2
+									LDA int64C+3 ROL STA int64C+3
+									LDA int64C+4 ROL STA int64C+4
+									LDA int64C+5 ROL STA int64C+5
+									LDA int64C+6 ROL STA int64C+6
+									LDA int64C+7 ROL STA int64C+7
+									LDA int64C+8 ROL STA int64C+8		; shift C into "remember" and shift an old carry out
+									LDI 0
+									CPA int64C+0 BNE Dec64start     	; prüfe nach, ob big register null enthält
+									CPA int64C+1 BNE Dec64start
+									CPA int64C+2 BNE Dec64start
+									CPA int64C+3 BNE Dec64start
+									CPA int64C+4 BNE Dec64start
+									CPA int64C+5 BNE Dec64start
+									CPA int64C+6 BNE Dec64start
+									CPA int64C+7 BNE Dec64start
+									DEB int64nflag										; has the sign been set?
+									BCC Dec64stack
+										LDI '-'													; print the negative sign
+										OUT NOP NOP NOP NOP NOP NOP NOP NOP		; print the sign
+	Dec64stack:			PLS CPI 0 BEQ Dec64exit					      	; read the numbers from the stack backwards (0 = end)
+										OUT NOP NOP NOP NOP NOP NOP NOP NOP		; print (optimized)
+										JPA Dec64stack
+	Dec64exit:			 RTS
+
+; ***** Subroutine reading keyboard input until [ENTER] into memBuffer *****
+ReadLine:  		JPS readexit                        ; resets the LSB of int64ptr
+  readchar:   WIN                                 ; ... waiting for input other than 0
+              OUT                                 ; 6 output without sleeping, since the maximum receive rate is 115,2kHz anyway
+              NOP NOP NOP NOP                     ; 64 warten, damit nachfolgende Progs UART nicht stören (min. 160 cycles interval)
+              STR int64ptr                      	; 10
+              CPI 10                              ; 5 teste auf ENTER & BACKSPACE
+              BEQ readexit                        ; 5(6)
+              BCS nobackspace                     ; 6(5) ... backspace wäre "8"
+                DEB int64ptr                    	; BACKSPACE war's
+                CPI <memBuffer
+                BCS readchar
+                  NOP NOP NOP                         ; damit das SPACE korrekt gesendet wird
+                  LDI 32 OUT JPS WaitOnUART
+  nobackspace:  INB int64ptr                    	; 10
+                BCC readchar                      ; 6(5) maximale Anzahl von Zeichen wurde eingelesen
+  readexit:       LDI >memBuffer STA int64ptr+1 	; reset the line pointer
+                  LDI <memBuffer STA int64ptr+0
+                  RTS
+
+WaitOnUART:    	NOP NOP NOP NOP NOP NOP NOP NOP ; Waits for a UART transmission to complete, Ziel: min. 160 cycles = 10 x 16 cycles, Ist: 128 + 30 + 6(8) = 164(166) inkl. calling OUT (STA $8xxx)
+                RTS
+
+; ***** Schreibt einen nullterminierten String *****
+PrintText: 		LDS -1 STA int64ptr+0
+            	LDS -2 STA int64ptr+1 	         	; get LSB and MSB
+  printloop:  LDR int64ptr CPI 0	    	        ; Print routine
+							BEQ printend          		        ; string zuende?
+            	  OUT JPS WaitOnUART
+        		    INW int64ptr         		        ; zeige auf das nächste Zeichen
+     		        JPA printloop
+  printend:	  RTS
+
+*=$7e00
+
+int64A:				  0, 0, 0, 0, 0, 0, 0, 0, 0
+int64B:				  0, 0, 0, 0, 0, 0, 0, 0, 0
+int64C:				  0, 0, 0, 0, 0, 0, 0, 0, 0
+int64E:				  0, 0, 0, 0, 0, 0, 0, 0
+int64ptr:			  $0000
+int64count:		  0
+int64nflag:		  0
+
+MyA:						$40, $0d, $03, $00, $00, $00, $00, $00
+MyB:						$0a, $00, $00, $00, $00, $00, $00, $00
+
+*=$7e90
+
+memBuffer:			; OS line input buffer
+
+*=$2000
+
+; ------------------------------------------------------------------------------
+; This software is available under 2 licenses -- choose whichever you prefer.
+; ------------------------------------------------------------------------------
+; ALTERNATIVE A - MIT License
+; Copyright (c) 2020 Carsten Herting
+; Permission is hereby granted, free of charge, to any person obtaining a copy of
+; this software and associated documentation files (the "Software"), to deal in
+; the Software without restriction, including without limitation the rights to
+; use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+; of the Software, and to permit persons to whom the Software is furnished to do
+; so, subject to the following conditions:
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+; ------------------------------------------------------------------------------
+; ALTERNATIVE B - Public Domain (www.unlicense.org)
+; This is free and unencumbered software released into the public domain.
+; Anyone is free to copy, modify, publish, use, compile, sell, or distribute this
+; software, either in source code form or as a compiled binary, for any purpose,
+; commercial or non-commercial, and by any means.
+; In jurisdictions that recognize copyright laws, the author or authors of this
+; software dedicate any and all copyright interest in the software to the public
+; domain. We make this dedication for the benefit of the public at large and to
+; the detriment of our heirs and successors. We intend this dedication to be an
+; overt act of relinquishment in perpetuity of all present and future rights to
+; this software under copyright law.
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+; ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+; WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+; ------------------------------------------------------------------------------
