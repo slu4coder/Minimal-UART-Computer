@@ -5,9 +5,9 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 9 9
 Title "B Register"
-Date "2020-12-14"
+Date "2020-12-16"
 Rev "1.2"
-Comp ""
+Comp "by Carsten Herting (2020)"
 Comment1 ""
 Comment2 "creativecommons.org/licenses/by-nc-sa/3.0/deed.en"
 Comment3 "License: CC BY-NC-SA 3.0"

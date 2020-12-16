@@ -5,9 +5,9 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 3 9
 Title "Control Logic"
-Date "2020-12-14"
+Date "2020-12-16"
 Rev "1.2"
-Comp "Carsten (Slu4) Herting (c) 2020"
+Comp "by Carsten Herting (2020)"
 Comment1 ""
 Comment2 "creativecommons.org/licenses/by-nc-sa/3.0/deed.en"
 Comment3 "License: CC BY-NC-SA 3.0"
@@ -945,32 +945,18 @@ Text Notes 5500 5300 0    50   ~ 0
 Text Notes 2000 1300 0    50   ~ 0
 ~FI
 $Comp
-L Device:R R?
-U 1 1 5FC2A84D
-P 8150 2050
-AR Path="/5FC2A84D" Ref="R?"  Part="1" 
-AR Path="/5EC57429/5FC2A84D" Ref="R10"  Part="1" 
-F 0 "R10" H 7950 2050 50  0000 L CNN
-F 1 "50" V 8150 2000 50  0000 L CNN
-F 2 "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal" V 8080 2050 50  0001 C CNN
-F 3 "~" H 8150 2050 50  0001 C CNN
-	1    8150 2050
-	-1   0    0    1   
-$EndComp
-$Comp
 L Device:C_Small C?
 U 1 1 5FC2AF22
 P 8050 1900
 AR Path="/5F645851/5FC2AF22" Ref="C?"  Part="1" 
 AR Path="/5EC57429/5FC2AF22" Ref="C10"  Part="1" 
-F 0 "C10" V 8200 1800 50  0000 L CNN
-F 1 "22pF" V 7950 1800 50  0000 L CNN
+F 0 "C10" V 7950 1600 50  0000 L CNN
+F 1 "47pF" V 7950 1800 50  0000 L CNN
 F 2 "Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P2.50mm" H 8050 1900 50  0001 C CNN
 F 3 "~" H 8050 1900 50  0001 C CNN
 	1    8050 1900
 	0    1    1    0   
 $EndComp
-Connection ~ 8150 1900
 $Comp
 L power:GND #PWR?
 U 1 1 5FC30053
@@ -984,10 +970,24 @@ F 3 "" H 7950 1900 50  0001 C CNN
 	1    7950 1900
 	1    0    0    -1  
 $EndComp
-Wire Wire Line
-	8150 3100 8150 2200
 Connection ~ 3100 2300
 Connection ~ 5200 2300
 Connection ~ 7400 2300
 Connection ~ 10050 2300
+Wire Wire Line
+	8150 3100 8150 2200
+Connection ~ 8150 1900
+$Comp
+L Device:R R?
+U 1 1 5FC2A84D
+P 8150 2050
+AR Path="/5FC2A84D" Ref="R?"  Part="1" 
+AR Path="/5EC57429/5FC2A84D" Ref="R10"  Part="1" 
+F 0 "R10" H 8200 2200 50  0000 L CNN
+F 1 "wire" V 8150 1950 50  0000 L CNN
+F 2 "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal" V 8080 2050 50  0001 C CNN
+F 3 "~" H 8150 2050 50  0001 C CNN
+	1    8150 2050
+	-1   0    0    1   
+$EndComp
 $EndSCHEMATC
