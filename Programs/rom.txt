@@ -1,8 +1,18 @@
-; ROM Version 1.2.0 for the Minimal UART CPU
+; MINOS ROM Version 1.2.0 for the 8-Bit Minimal UART CPU
 ; by Carsten Herting - last update 07.12.2020
 
+; TODO: general purpose functions: CursorXY, ParseDecNum
+
+; CHANGE LOG 1.2.0:
+; 2002_12_07  Reworking general purpose routines
+; 2020_12_06  Renaming general purpose routines to OS_...
+; 2020_12_05  Converting to microcode 1.2.0 (improved instruction set)
+; 2020_12_05  Implement parsing of mnemonics
+; 2020_12_04  Improve reset screen
+; 2020_11_28  Optimize NOPs in OS_PrintHexByte function
+
 ; ********************************************************************************************
-; Memory Monitor
+; Memory Monitor like WozMon
 ; ********************************************************************************************
             *=$0000
 memMon:     LDI $fe STA $7fff                   ; stack initialization
@@ -370,7 +380,8 @@ welcometxt: 	  27, "[H", 27, "[H", 27, "[J", "***** MINIMAL UART CPU MinOS 1.2.0
                 " 400 r A      Disassemble A.. (q quits)", 10
                 " 800 r        64-Bit Calculator", 10
                 " 1400 r       Minimal Pong", 10
-                " 16e0 r       Minimal Tetris", 10, 10, 0
+                " 16e0 r       Minimal Tetris", 10
+                10, 0
 
                 #end
                 
@@ -398,43 +409,3 @@ OS_Buffer:                                      ; MEMMON line buffer $7e90-$7eff
 								#begin
                 
 								*=$0000                         ; set PC to reset vector
-
-; ------------------------------------------------------------------------------
-; This software is available under 2 licenses -- choose whichever you prefer.
-; ------------------------------------------------------------------------------
-; ALTERNATIVE A - MIT License
-; Copyright (c) 2020 Carsten Herting
-; Permission is hereby granted, free of charge, to any person obtaining a copy of
-; this software and associated documentation files (the "Software"), to deal in
-; the Software without restriction, including without limitation the rights to
-; use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-; of the Software, and to permit persons to whom the Software is furnished to do
-; so, subject to the following conditions:
-; The above copyright notice and this permission notice shall be included in all
-; copies or substantial portions of the Software.
-; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-; SOFTWARE.
-; ------------------------------------------------------------------------------
-; ALTERNATIVE B - Public Domain (www.unlicense.org)
-; This is free and unencumbered software released into the public domain.
-; Anyone is free to copy, modify, publish, use, compile, sell, or distribute this
-; software, either in source code form or as a compiled binary, for any purpose,
-; commercial or non-commercial, and by any means.
-; In jurisdictions that recognize copyright laws, the author or authors of this
-; software dedicate any and all copyright interest in the software to the public
-; domain. We make this dedication for the benefit of the public at large and to
-; the detriment of our heirs and successors. We intend this dedication to be an
-; overt act of relinquishment in perpetuity of all present and future rights to
-; this software under copyright law.
-; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-; AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-; ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-; WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-; ------------------------------------------------------------------------------

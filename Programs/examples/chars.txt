@@ -1,5 +1,3 @@
-; Charset demo written by Carsten Herting (2020)
-
 					*=$2000
 
 start:		LDI 32						; prints all visible chars starting from 32 (SPACE) up until 127 (INVERTED LEFT ARROW)

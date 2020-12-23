@@ -1,5 +1,3 @@
-; 64-Bit Calculator written by Carsten Herting (2020)
-
 *=$2000
                 LDI $fe STA $7fff		; init stack
 
@@ -8,6 +6,7 @@ start:					LDI <Text1 STS -3 LDI >Text1 STS -4 JPS PrintText
 								LDI <$7e90 STS -3		; parse a number
 								LDI >$7e90 STS -4
 								JPS Int64_Parse			; read into Int64 register
+
 								LDI <MyA STS -3			; save the result in A
 								LDI >MyA STS -4
 								JPS Int64_Get
@@ -50,7 +49,6 @@ start:					LDI <Text1 STS -3 LDI >Text1 STS -4 JPS PrintText
 
 								JPA start
 
-
 Text1:					"Enter number ", 0
 Text2:					"Type + - * / ", 0
 Text3:					"           = ", 0
@@ -72,14 +70,14 @@ Int64_Parse:		LDS -1 STA int64ptr+0						  ; reads in a decimal value
 								BCC nodigit
 	nullorabove:	CPI 10
 								BCS nodigit
-									PHS															; store last digit on stack
+									PHS															; store last digit value on stack
 									JPS Int64_Left									; multiply A with 10 (10*A = 2*A + 8*A)
 									LDA int64A+0 STA int64B+0 LDA int64A+1 STA int64B+1		; B = 2*A
 									LDA int64A+2 STA int64B+2 LDA int64A+3 STA int64B+3
 									LDA int64A+4 STA int64B+4 LDA int64A+5 STA int64B+5
 									LDA int64A+6 STA int64B+6 LDA int64A+7 STA int64B+7
 									JPS Int64_Left
-									JPS Int64_Left
+									JPS Int64_Left									; now contains x8
 									LDI <int64B STS -3							; compute 8*A + 2*A
 									LDI >int64B STS -4
 									JPS Int64_Add
@@ -138,24 +136,24 @@ Int64_Get:			LDS -1 STA int64ptr+0							; copy the A register
 								LDA int64A+7 STR int64ptr
 								RTS
 
-Int64_Add:			LDA int64B+0 ADW int64A+0 LDI 0 ACW int64A+2 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6									LDA int64A+8 ROL STA int64A+8
-								LDA int64B+1 ADA int64A+1 STA int64A+1 LDI 0 ACW int64A+2 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6		LDA int64A+8 ROL STA int64A+8
-								LDA int64B+2 ADW int64A+2 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6																			LDA int64A+8 ROL STA int64A+8
-								LDA int64B+3 ADA int64A+3 STA int64A+3 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6												LDA int64A+8 ROL STA int64A+8
-								LDA int64B+4 ADW int64A+4 LDI 0 ACW int64A+6																													LDA int64A+8 ROL STA int64A+8
-								LDA int64B+5 ADA int64A+5 STA int64A+5 LDI 0 ACW int64A+6																						LDA int64A+8 ROL STA int64A+8
-								LDA int64B+6 ADW int64A+6																																							LDA int64A+8 ROL STA int64A+8
-								LDA int64B+7 ADA int64A+7 STA int64A+7																																LDA int64A+8 ROL STA int64A+8
+Int64_Add:			LDA int64B+0 ADW int64A+0 LDI 0 ACW int64A+2 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6		LDA int64A+8 ROL STA int64A+8
+								LDA int64B+1 ADB int64A+1 LDI 0 ACW int64A+2 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6		LDA int64A+8 ROL STA int64A+8
+								LDA int64B+2 ADW int64A+2 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6												LDA int64A+8 ROL STA int64A+8
+								LDA int64B+3 ADB int64A+3 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6												LDA int64A+8 ROL STA int64A+8
+								LDA int64B+4 ADW int64A+4 LDI 0 ACW int64A+6																					LDA int64A+8 ROL STA int64A+8
+								LDA int64B+5 ADB int64A+5 LDI 0 ACW int64A+6																					LDA int64A+8 ROL STA int64A+8
+								LDA int64B+6 ADW int64A+6																															LDA int64A+8 ROL STA int64A+8
+								LDA int64B+7 ADB int64A+7																															LDA int64A+8 ROL STA int64A+8
 								RTS
 
-Int64_Sub:			LDA int64B+0 SBW int64A+0 LDI 0 SCW int64A+2 LDI 0 SCW int64A+4 LDI 0 SCW int64A+6									LDA int64A+8 ROL STA int64A+8
-								LDA int64A+1 SBA int64B+1 STA int64A+1 LDI 0 SCW int64A+2 LDI 0 SCW int64A+4 LDI 0 SCW int64A+6		LDA int64A+8 ROL STA int64A+8
-								LDA int64B+2 SBW int64A+2 LDI 0 SCW int64A+4 LDI 0 SCW int64A+6																			LDA int64A+8 ROL STA int64A+8
-								LDA int64A+3 SBA int64B+3 STA int64A+3 LDI 0 SCW int64A+4 LDI 0 SCW int64A+6												LDA int64A+8 ROL STA int64A+8
-								LDA int64B+4 SBW int64A+4 LDI 0 SCW int64A+6																													LDA int64A+8 ROL STA int64A+8
-								LDA int64A+5 SBA int64B+5 STA int64A+5 LDI 0 SCW int64A+6																						LDA int64A+8 ROL STA int64A+8
-								LDA int64B+6 SBW int64A+6																																							LDA int64A+8 ROL STA int64A+8
-								LDA int64A+7 SBA int64B+7 STA int64A+7																																LDA int64A+8 ROL STA int64A+8
+Int64_Sub:			LDA int64B+0 SBW int64A+0 LDI 0 SCW int64A+2 LDI 0 SCW int64A+4 LDI 0 SCW int64A+6		LDA int64A+8 ROL STA int64A+8
+								LDA int64B+1 SBB int64A+1 LDI 0 SCW int64A+2 LDI 0 SCW int64A+4 LDI 0 SCW int64A+6		LDA int64A+8 ROL STA int64A+8
+								LDA int64B+2 SBW int64A+2 LDI 0 SCW int64A+4 LDI 0 SCW int64A+6												LDA int64A+8 ROL STA int64A+8
+								LDA int64B+3 SBB int64A+3 LDI 0 SCW int64A+4 LDI 0 SCW int64A+6												LDA int64A+8 ROL STA int64A+8
+								LDA int64B+4 SBW int64A+4 LDI 0 SCW int64A+6																					LDA int64A+8 ROL STA int64A+8
+								LDA int64B+5 SBB int64A+5 LDI 0 SCW int64A+6																					LDA int64A+8 ROL STA int64A+8
+								LDA int64B+6 SBW int64A+6																															LDA int64A+8 ROL STA int64A+8
+								LDA int64B+7 SBB int64A+7																															LDA int64A+8 ROL STA int64A+8
 								RTS
 
 Int64_NegA:		  NEW int64A+6												; negate A
@@ -360,58 +358,18 @@ PrintText: 		LDS -1 STA int64ptr+0
 *=$7e00
 
 int64A:				  0, 0, 0, 0, 0, 0, 0, 0, 0
-int64B:				  0, 0, 0, 0, 0, 0, 0, 0, 0
+int64B:				  0, 0, 0, 0, 0, 0, 0, 0
 int64C:				  0, 0, 0, 0, 0, 0, 0, 0, 0
 int64E:				  0, 0, 0, 0, 0, 0, 0, 0
 int64ptr:			  $0000
 int64count:		  0
 int64nflag:		  0
 
-MyA:						$40, $0d, $03, $00, $00, $00, $00, $00
-MyB:						$0a, $00, $00, $00, $00, $00, $00, $00
+MyA:						$00, $00, $00, $00, $00, $00, $00, $00
+MyB:						$00, $00, $00, $00, $00, $00, $00, $00
 
 *=$7e90
 
 memBuffer:			; OS line input buffer
 
 *=$2000
-
-; ------------------------------------------------------------------------------
-; This software is available under 2 licenses -- choose whichever you prefer.
-; ------------------------------------------------------------------------------
-; ALTERNATIVE A - MIT License
-; Copyright (c) 2020 Carsten Herting
-; Permission is hereby granted, free of charge, to any person obtaining a copy of
-; this software and associated documentation files (the "Software"), to deal in
-; the Software without restriction, including without limitation the rights to
-; use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-; of the Software, and to permit persons to whom the Software is furnished to do
-; so, subject to the following conditions:
-; The above copyright notice and this permission notice shall be included in all
-; copies or substantial portions of the Software.
-; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-; SOFTWARE.
-; ------------------------------------------------------------------------------
-; ALTERNATIVE B - Public Domain (www.unlicense.org)
-; This is free and unencumbered software released into the public domain.
-; Anyone is free to copy, modify, publish, use, compile, sell, or distribute this
-; software, either in source code form or as a compiled binary, for any purpose,
-; commercial or non-commercial, and by any means.
-; In jurisdictions that recognize copyright laws, the author or authors of this
-; software dedicate any and all copyright interest in the software to the public
-; domain. We make this dedication for the benefit of the public at large and to
-; the detriment of our heirs and successors. We intend this dedication to be an
-; overt act of relinquishment in perpetuity of all present and future rights to
-; this software under copyright law.
-; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-; AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-; ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-; WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-; ------------------------------------------------------------------------------

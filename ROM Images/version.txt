@@ -1,2 +1,1 @@
-Microcode version 1.2
-ROM version 1.2.0
+2020_12_23 Initial release, microcode version 1.2, ROM version 1.2.0

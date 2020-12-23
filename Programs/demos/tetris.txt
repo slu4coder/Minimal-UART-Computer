@@ -1,15 +1,15 @@
-; ***************************************************
-; *****                                         *****
-; *****    MINIMAL TETRIS DEMO by Slu4 (2020)   *****
-; *****     with SUPER ROTATION SYSTEM (SRS)    *****
-; *****    Original by Alexej Pajitnov (1984)   *****
-; *****                                         *****
-; *****         last update 26.11.2020          *****
-; *****                                         *****
-; ***************************************************
-
               *=$2000
-
+; **********************************************
+; *****                                    *****
+; *****                                    *****
+; *****    MINIMAL TETRIS by Slu4 (2020)   *****
+; *****  with SUPER ROTATION SYSTEM (SRS)  *****
+; ***** Original by Alexej Pajitnov (1984) *****
+; *****                                    *****
+; *****       last update 22.12.2020       *****
+; *****            ROM Version             *****
+; *****                                    *****
+; **********************************************
               LDI $fe STA $7fff           ; init stack
 game_restart: CLB state
               JPS PrintIntro
@@ -94,11 +94,11 @@ run_keyboard: LDA $8000                                   ; Steuerung (non-block
 
 a_key:        LDI '.' STA shapechar JPS PrintShape
               LDA xpos DEC STS -3 LDA ypos STS -4 JPS TestShape
-              LDS -3 NEG ADA xpos STA xpos
+              LDS -3 SBB xpos
               JPA run_drawshape
 d_key:        LDI '.' STA shapechar JPS PrintShape
               LDA xpos INC STS -3 LDA ypos STS -4 JPS TestShape
-              LDS -3 ADA xpos STA xpos
+              LDS -3 ADB xpos
               JPA run_drawshape
 w_key:        LDI '.' STA shapechar JPS PrintShape  ; alte Shape löschen
               JPS RotateShape                       ; rotierte shape erzeugen
@@ -252,8 +252,8 @@ tsloop:       LDS -1                  ; lade test-xpos
 tsoutside:    LDI 0 STS -1            ; return "space is invalid"
               RTS
 
-RotateShape:  LDA xpos ADA xoff STA xpos
-              LDA ypos ADA yoff STA ypos
+RotateShape:  LDA xoff ADB xpos
+              LDA yoff ADB ypos
               LDI 5 STA vari
               LDI >shape STA ptr+1
               LDI <shape STA ptr+0

@@ -1,6 +1,10 @@
-; ***** PONG demo written by Carsten Herting 2020 *****
-
           *=$2000
+
+; ***********************************
+; *****                         *****
+; ***** PONG by C. Herting 2020 *****
+; *****                         *****
+; ***********************************
           LDI $fe STA $7fff   ; init stack
 
           LDI 25 STA spos     ; initialize start variables

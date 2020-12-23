@@ -1,5 +1,3 @@
-; Text printing demo written by Carsten Herting (2020)
-
                 *=$2000
 
                 LDI $fe STA $7fff			; init stack
