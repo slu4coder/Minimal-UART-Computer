@@ -528,7 +528,7 @@ controltext:  10, 10, 10                     ; output text for keyboard controls
               "W - Rotate", 10
               "S - Drop", 0
 
-highscore:    $1767                          ; holding the highscore old: $1546
+highscore:    $1a70                          ; holding the current highscore
 
 minos:        0,  0,  1,  0,  0, -1, 1, -1,   1  ; Quadrat   ; initial tetrominos with initial x-offset for SRS
               -1, -1, 0,  -1, 0, 0,  1, 0,    0  ; Z

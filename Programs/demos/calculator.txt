@@ -1,94 +1,189 @@
-*=$2000
-                LDI $fe STA $7fff		; init stack
+;	64-Bit Integer Math Library for Calculator Application
+; Interpreter front-end for arbitrary math expressions based on Backus-Naur-Form (BNF)
+;	by Carsten Herting (2021)
+;
+; Int64_Init:   Initializes the math stack
+; Int64_Add:    A = A + B
+; Int64_Sub:    A = A - B
+; Int64_Mul:    A = A * B
+; Int64_Div:    A = A / B
+; Int64_Copy:   B = A
+; Int64_Clear:	A = 0
+; Int64_NegA:   A = -A
+; Int64_NegB:   B = -B
+; Int64_Left:		A = A << 1
+; Int64_Set:		Sets A from <data>
+;								Input: SP-3/-4: LSB/MSB of <data> address
+; Int64_Get:		Copies A to <data>
+;								Input: SP-3/-4: LSB/MSB of <data> address
+; Int64_Push:		Pushes A onto the math stack [move A,(SP)-]
+; Int64_Pull:   Pulls a value from the math stack into A [move +(SP), A]
+; Int64_DecNum:	Reads a value in decimal format from <string> into A
+;								Input: 	SP-3/-4: <string> address LSB/MSB
+;								Output: SP-3/-4: <string> address LSB/MSB of the next char
+;												SP-2: 0: invalid, >0: valid
+; Int64_Print:  Prints out the value of A in signed decimal format
 
-start:					LDI <Text1 STS -3 LDI >Text1 STS -4 JPS PrintText
-								JPS ReadLine				; read in a number
-								LDI <$7e90 STS -3		; parse a number
-								LDI >$7e90 STS -4
-								JPS Int64_Parse			; read into Int64 register
-
-								LDI <MyA STS -3			; save the result in A
-								LDI >MyA STS -4
-								JPS Int64_Get
-
-								LDI <Text2 STS -3 LDI >Text2 STS -4 JPS PrintText
-								WIN PHS             ; push operator on stack
-                OUT JPS WaitOnUART LDI 10 OUT JPS WaitOnUART
-
-								LDI <Text1 STS -3 LDI >Text1 STS -4 JPS PrintText
-								JPS ReadLine				; read in a number
-								LDI <$7e90 STS -3		; parse a number
-								LDI >$7e90 STS -4
-								JPS Int64_Parse			; read into Int64 register
-								LDI <MyB STS -3			; save the result in B
-								LDI >MyB STS -4
-								JPS Int64_Get
-
-								LDI <MyA STS -3
-								LDI >MyA STS -4
-								JPS Int64_Set
-								LDI <MyB STS -3
-								LDI >MyB STS -4
-								JPS Int64_SetB
-
-								PLS                 ; pull operator from stack
-								CPI '-' BEQ minus
-								CPI '*' BEQ multi
-								CPI '/' BEQ divide
-	plus:						JPS Int64_Add			; add to Int64 register
-									JPA output
-	minus:				JPS Int64_Sub				; add to Int64 register
-								JPA output
-	multi:					JPS Int64_Mul
-									JPA output
-	divide:				JPS Int64_Div				; Int64_Div
-
-	output:				LDI <Text3 STS -3 LDI >Text3 STS -4 JPS PrintText
-								JPS Int64_Print
-                LDI 10 OUT JPS WaitOnUART LDI 10 OUT JPS WaitOnUART
-
+*=$2000					; calculator front-end
+			          LDI $fe STA $7fff							; init system stack
+								LDI <calctext STS -3 LDI >calctext STS -4 JPS PrintText
+start:					JPS Int64_Init								; init math library
+								JPS ReadLine									; read in a number & reset the line pointer
+								JPS Expression								; treat the expression
+								LDS -2 CPI 0 BEQ Error				; processed successfully?
+									JPS Look LDS -2
+									CPI 10 BNE Error						; last char = LF means there is nothing left unprocessed								
+										LDI '=' OUT JPS WaitUART		
+										JPS Int64_Print
+										JPA Enter
+	Error:				LDI <errortext STS -3 LDI >errortext STS -4 JPS PrintText
+	Enter:				LDI 10 OUT JPS WaitUART
 								JPA start
 
-Text1:					"Enter number ", 0
-Text2:					"Type + - * / ", 0
-Text3:					"           = ", 0
+; ****************************************************************************************************************
 
-Int64_Parse:		LDS -1 STA int64ptr+0						  ; reads in a decimal value
-								LDS -2 STA int64ptr+1						  ; pointing to input line
-								CLW int64A+0										  ; clear the 64bit A register
-								CLW int64A+2
-								CLW int64A+4
-								CLW int64A+6
-								CLB int64nflag									  ; parse for negative sign
-								LDI '-'
-								CPR int64ptr
-								BNE nextdigit
-									INB int64nflag								  ; mark number as negative
-									INW int64ptr									  ; move to next digit
-	nextdigit:		LDR int64ptr										  ; PARSE FOR POSITIVE DIGITS
-								SBI 48
-								BCC nodigit
-	nullorabove:	CPI 10
-								BCS nodigit
-									PHS															; store last digit value on stack
-									JPS Int64_Left									; multiply A with 10 (10*A = 2*A + 8*A)
-									LDA int64A+0 STA int64B+0 LDA int64A+1 STA int64B+1		; B = 2*A
-									LDA int64A+2 STA int64B+2 LDA int64A+3 STA int64B+3
-									LDA int64A+4 STA int64B+4 LDA int64A+5 STA int64B+5
-									LDA int64A+6 STA int64B+6 LDA int64A+7 STA int64B+7
-									JPS Int64_Left
-									JPS Int64_Left									; now contains x8
-									LDI <int64B STS -3							; compute 8*A + 2*A
-									LDI >int64B STS -4
+ReturnFalse:		LDI 0										; signal failure
+								STS 0 RTS
+
+ReturnTrue:			LDI 1										; signal success
+								STS 0 RTS
+
+Look:						LDR lineptr							; return current char
+								STS 0 RTS
+
+Take:						LDR lineptr STS 0				; return current char and proceed
+								INW lineptr
+								RTS
+
+Next:						LDR lineptr							; return next non-space char
+								CPI ' ' BNE nextende
+									INW lineptr
+									JPA Next
+	nextende:			STS 0 RTS								; deposit last char
+
+Match:					LDS 0 PHS								; return if next non-space char matches the <argument>
+								JPS Next
+								PLS
+								CPR lineptr BNE ReturnFalse
+									INW lineptr
+									JPA ReturnTrue
+
+IsAddOp:				LDS 0										; + or -?
+								CPI '+' BEQ ReturnTrue
+								CPI '-' BEQ ReturnTrue
+									JPA ReturnFalse
+
+IsMulOp:				LDS 0										; * or /?
+								CPI '*' BEQ ReturnTrue
+								CPI '/' BEQ ReturnTrue
+									JPA ReturnFalse
+
+Add:						JPS Term
+								LDS -2 CPI 0 BEQ ReturnFalse
+									JPS Int64_Copy
+									JPS Int64_Pull
 									JPS Int64_Add
+									JPA ReturnTrue
+
+Sub:						JPS Term
+								LDS -2 CPI 0 BEQ ReturnFalse
+									JPS Int64_Copy
+									JPS Int64_Pull
+									JPS Int64_Sub
+									JPA ReturnTrue
+
+Mul:						JPS Factor
+								LDS -2 CPI 0 BEQ ReturnFalse
+									JPS Int64_Copy
+									JPS Int64_Pull
+									JPS Int64_Mul
+									JPA ReturnTrue
+
+Div:						JPS Factor
+								LDS -2 CPI 0 BEQ ReturnFalse
+									JPS Int64_Copy
+									JPS Int64_Pull
+									JPS Int64_Div
+									JPA ReturnTrue
+
+Expression:			JPS Term															; <expression> :== <term> [<addop> <term>]
+								LDS -2 CPI 0 BEQ ReturnFalse
+	exploop:				JPS Next
+									JPS IsAddOp
+									LDS -2 CPI 0 BEQ ReturnTrue					; addop is only optional
+										JPS Int64_Push
+										JPS Take
+										LDS -2 CPI '+' BEQ expadd											
+											JPS Sub
+											LDS -2 CPI 0 BEQ ReturnFalse
+												JPA exploop
+		expadd:					JPS Add
+										LDS -2 CPI 0 BEQ ReturnFalse
+											JPA exploop
+
+Term:						JPS SignedFactor											; <term> :== <signedfactor> [<mulop> <factor>]
+								LDS -2 CPI 0 BEQ ReturnFalse
+	termloop:				JPS Next
+									JPS IsMulOp
+									LDS -2 CPI 0 BEQ ReturnTrue
+										JPS Int64_Push
+										JPS Take LDS -2
+										CPI '*' BEQ termmult
+											JPS Div
+											LDS -2 CPI 0 BEQ ReturnFalse
+												JPA termloop
+		termmult:				JPS Mul
+										LDS -2 CPI 0 BEQ ReturnFalse
+											JPA termloop
+
+Factor:					JPS Next
+								JPS Int64_DecNum											; <factor> ::= <number> | (<Expression>)
+								LDS -2 CPI 0 BNE ReturnTrue
+									LDI '(' STS -2 JPS Match
+									LDS -2 CPI 0 BEQ ReturnFalse
+										JPS Expression
+										LDS -2 CPI 0 BEQ ReturnFalse
+										LDI ')' STS -2 JPS Match
+										LDS -2 CPI 0 BEQ ReturnFalse
+											JPA ReturnTrue
+
+SignedFactor:		JPS Next
+								JPS IsAddOp														; <signed factor> ::= [<addop>] <factor>
+								LDS -2 CPI 0 BEQ Factor								; weiter bei Factor
+									JPS Take LDS -2
+									CPI '+' BEQ Factor									; weiter bei Factor
+										JPS Factor												; treat unary minus
+										LDS -2 CPI 0 BEQ ReturnFalse
+											JPS Int64_NegA
+											JPA ReturnTrue
+
+; ****************************************************************************************************************
+
+Int64_Init:			LDI <int64stack STA int64stackptr+0		; init math stack pointer
+								LDI >int64stack STA int64stackptr+1
+								RTS
+
+Int64_DecNum:		JPS Int64_Clear										; clear A register
+								CLB int64valid										; devalidate input
+	nextdigit:		LDR lineptr										  	; PARSE FOR THE NEXT DIGIT
+								SBI '0' BCC nodigit
+								CPI 10 BCS nodigit
+									PHS															; IT IS A DIGIT! Store last digit value on stack
+									INW lineptr
+									INB int64valid
+									JPS Int64_Left									; multiply A with 10 (10*A = 2*A + 8*A)
+									JPS Int64_Copy									; B = 2 * A_init
+									JPS Int64_Left
+									JPS Int64_Left									; A = 8 * A_init
+									JPS Int64_Add										; A = 10 * A_init
 									PLS															; get last digit from stack
 									ADW int64A+0 LDI 0 ACW int64A+2 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6		; add last digit to A
-									INW int64ptr
 									JPA nextdigit
-	nodigit:			DEB int64nflag
-								BCC notneg
-									JPS Int64_NegA
-	notneg:				RTS
+	nodigit:			LDA int64valid STS 0							; return success or failure
+								RTS
+
+Int64_Clear:		CLW int64A+0 CLW int64A+2 CLW int64A+4 CLW int64A+6
+								RTS
 
 Int64_Left:			LDA int64A+0 LSL STA int64A+0			; shift one step left
 								LDA int64A+1 ROL STA int64A+1
@@ -112,18 +207,6 @@ Int64_Set:			LDS -1 STA int64ptr+0							; set the A register
 								LDR int64ptr STA int64A+7
 								RTS
 
-Int64_SetB:			LDS -1 STA int64ptr+0							; set the A register
-								LDS -2 STA int64ptr+1
-								LDR int64ptr STA int64B+0 INW int64ptr
-								LDR int64ptr STA int64B+1 INW int64ptr
-								LDR int64ptr STA int64B+2 INW int64ptr
-								LDR int64ptr STA int64B+3 INW int64ptr
-								LDR int64ptr STA int64B+4 INW int64ptr
-								LDR int64ptr STA int64B+5 INW int64ptr
-								LDR int64ptr STA int64B+6 INW int64ptr
-								LDR int64ptr STA int64B+7
-								RTS
-
 Int64_Get:			LDS -1 STA int64ptr+0							; copy the A register
 								LDS -2 STA int64ptr+1
 								LDA int64A+0 STR int64ptr INW int64ptr
@@ -134,6 +217,26 @@ Int64_Get:			LDS -1 STA int64ptr+0							; copy the A register
 								LDA int64A+5 STR int64ptr INW int64ptr
 								LDA int64A+6 STR int64ptr INW int64ptr
 								LDA int64A+7 STR int64ptr
+								RTS
+
+Int64_Push:			LDI <int64A STA int64ptr+0 LDI >int64A STA int64ptr+1
+								LDI 8 STA int64count
+	pushloop:	  	LDR int64ptr STR int64stackptr INW int64ptr DEW int64stackptr
+								DEB int64count
+								BNE pushloop
+								RTS
+
+Int64_Pull:			LDI <int64Acarry STA int64ptr+0 LDI >int64Acarry STA int64ptr+1
+								LDI 8 STA int64count
+	pullloop:	  	INW int64stackptr DEW int64ptr LDR int64stackptr STR int64ptr
+								DEB int64count
+								BNE pullloop
+								RTS
+
+Int64_Copy:			LDA int64A+0 STA int64B+0 LDA int64A+1 STA int64B+1
+								LDA int64A+2 STA int64B+2 LDA int64A+3 STA int64B+3
+								LDA int64A+4 STA int64B+4 LDA int64A+5 STA int64B+5
+								LDA int64A+6 STA int64B+6 LDA int64A+7 STA int64B+7
 								RTS
 
 Int64_Add:			LDA int64B+0 ADW int64A+0 LDI 0 ACW int64A+2 LDI 0 ACW int64A+4 LDI 0 ACW int64A+6		LDA int64A+8 ROL STA int64A+8
@@ -172,7 +275,7 @@ Int64_Mul:			LDA int64A+0 STA int64C+0 LDA int64A+1 STA int64C+1		; copy A facto
 								LDA int64A+2 STA int64C+2 LDA int64A+3 STA int64C+3
 								LDA int64A+4 STA int64C+4 LDA int64A+5 STA int64C+5
 								LDA int64A+6 STA int64C+6 LDA int64A+7 STA int64C+7
-								CLW int64A+0	CLW int64A+2 CLW int64A+4	CLW int64A+6		; clear A								
+								JPS Int64_Clear										; clear A
 								LDI 64 STA int64count
   multloop:			LDA int64C+7 LSR STA int64C+7			; shift C one step right
 								LDA int64C+6 ROR STA int64C+6
@@ -183,8 +286,8 @@ Int64_Mul:			LDA int64A+0 STA int64C+0 LDA int64A+1 STA int64C+1		; copy A facto
 								LDA int64C+1 ROR STA int64C+1
 								LDA int64C+0 ROR STA int64C+0			; lowest bit is now in carry flag
 								BCC multbitoff
-									JPS Int64_Add											; adds current B to accumulator A
-  multbitoff:		LDA int64B+0 LSL STA int64B+0			; shift B one step left
+									JPS Int64_Add										; adds current B to accumulator A
+  multbitoff:		LDA int64B+0 LSL STA int64B+0			; increase the value of B with shift left one step left
 								LDA int64B+1 ROL STA int64B+1
 								LDA int64B+2 ROL STA int64B+2
 								LDA int64B+3 ROL STA int64B+3
@@ -197,14 +300,14 @@ Int64_Mul:			LDA int64A+0 STA int64C+0 LDA int64A+1 STA int64C+1		; copy A facto
 									RTS
 
 Int64_Div:			CLB int64nflag											; clear the sign byte (the lowest)
-								LDI 0 ADA int64A+7									; make A and B positive, evaluate the sign of result
+								LDA int64A+7 CPI 0									; make A and B positive, evaluate the sign of result
 								BPL divanotneg											
 									INB int64nflag										; store a sign
-									JPS Int64_NegA									; negate A
-	divanotneg:		LDI 0 ADA int64B+7 BPL divbnotneg
+									JPS Int64_NegA										; negate A
+	divanotneg:		LDA int64B+7 CPI 0 BPL divbnotneg
 									INB int64nflag										; store a(nother) sign
-									JPS Int64_NegB									; negate B
-	divbnotneg:		LDA int64B+0 STA int64B+4					; move the lower 32 bits of B 32 steps up
+									JPS Int64_NegB										; negate B
+	divbnotneg:		LDA int64B+0 STA int64B+4						; move the lower 32 bits of B 32 steps up
 								LDA int64B+1 STA int64B+5
 								LDA int64B+2 STA int64B+6
 								LDA int64B+3 STA int64B+7
@@ -263,12 +366,12 @@ Int64_Div:			CLB int64nflag											; clear the sign byte (the lowest)
 										JPS Int64_NegA
 	divallnotneg:		RTS
 
-Int64_Print:		LDA int64A+0 STA int64C+0 LDA int64A+1 STA int64C+1		; copy A to C
+Int64_Print:		LDA int64A+0 STA int64C+0 LDA int64A+1 STA int64C+1		; copy A to C and work with C
 								LDA int64A+2 STA int64C+2 LDA int64A+3 STA int64C+3
 								LDA int64A+4 STA int64C+4 LDA int64A+5 STA int64C+5
 								LDA int64A+6 STA int64C+6 LDA int64A+7 STA int64C+7
 								CLB int64nflag											; prints out P register (thereby destroying it)
-								LDI 0 PHS															; push string terminator on stack
+								LDI 0 PHS														; push string terminator on stack
 								ADA int64C+7												; check MSB
 								BPL Dec64start											; positive Zahl => print unsigned
 					        INB int64nflag										; set the negative sign
@@ -276,10 +379,10 @@ Int64_Print:		LDA int64A+0 STA int64C+0 LDA int64A+1 STA int64C+1		; copy A to C
 									NEW int64C+4 LDI 0 SCW int64C+6
 									NEW int64C+2 LDI 0 SCW int64C+4 LDI 0 SCW int64C+6
 									NEW int64C+0 LDI 0 SCW int64C+2 LDI 0 SCW int64C+4 LDI 0 SCW int64C+6
-	Dec64start:		LDI 64 STA int64count							; PRINT A POSITIVE NUMBER
+	Dec64start:		LDI 64 STA int64count							  ; PRINT A POSITIVE NUMBER
 								CLB int64C+8												; clear upper register and carry store
 	Dec64shift:		LDA int64C+8 ROL		  							; activate stored carry flag (initially C=0)
-								LDA int64C+0 ROL STA int64C+0			; shift in C and shift everything one step up
+								LDA int64C+0 ROL STA int64C+0			  ; shift in C and shift everything one step up
 								LDA int64C+1 ROL STA int64C+1
 								LDA int64C+2 ROL STA int64C+2
 								LDA int64C+3 ROL STA int64C+3
@@ -287,7 +390,7 @@ Int64_Print:		LDA int64A+0 STA int64C+0 LDA int64A+1 STA int64C+1		; copy A to C
 								LDA int64C+5 ROL STA int64C+5
 								LDA int64C+6 ROL STA int64C+6
 								LDA int64C+7 ROL STA int64C+7
-								LDA int64C+8 ROL STA int64C+8			; shift C into "remember" and shift an old carry out
+								LDA int64C+8 ROL STA int64C+8			  ; shift C into "remember" and shift an old carry out
 								CPI 10
 								BCC Dec64done												; 10 did not went into => do not set highest bit as carry
 									ADI 118 STA int64C+8			        ; 10 went into it => subtract 10 and set highest bit as carry (-10 +128)
@@ -295,7 +398,7 @@ Int64_Print:		LDA int64A+0 STA int64C+0 LDA int64A+1 STA int64C+1		; copy A to C
 								BNE Dec64shift
 									LDA int64C+8 LSL LSR ADI '0' PHS	; erase a possible stored carry and push remainder as char on stack
 									LDA int64C+8 ROL			  					; restore stored carry flag
-									LDA int64C+0 ROL STA int64C+0		; shift in C and shift everything one step up
+									LDA int64C+0 ROL STA int64C+0		  ; shift in C and shift everything one step up
 									LDA int64C+1 ROL STA int64C+1
 									LDA int64C+2 ROL STA int64C+2
 									LDA int64C+3 ROL STA int64C+3
@@ -303,7 +406,7 @@ Int64_Print:		LDA int64A+0 STA int64C+0 LDA int64A+1 STA int64C+1		; copy A to C
 									LDA int64C+5 ROL STA int64C+5
 									LDA int64C+6 ROL STA int64C+6
 									LDA int64C+7 ROL STA int64C+7
-									LDA int64C+8 ROL STA int64C+8		; shift C into "remember" and shift an old carry out
+									LDA int64C+8 ROL STA int64C+8		  ; shift C into "remember" and shift an old carry out
 									LDI 0
 									CPA int64C+0 BNE Dec64start     	; prüfe nach, ob big register null enthält
 									CPA int64C+1 BNE Dec64start
@@ -316,60 +419,72 @@ Int64_Print:		LDA int64A+0 STA int64C+0 LDA int64A+1 STA int64C+1		; copy A to C
 									DEB int64nflag										; has the sign been set?
 									BCC Dec64stack
 										LDI '-'													; print the negative sign
-										OUT NOP NOP NOP NOP NOP NOP NOP NOP		; print the sign
-	Dec64stack:			PLS CPI 0 BEQ Dec64exit					      	; read the numbers from the stack backwards (0 = end)
-										OUT NOP NOP NOP NOP NOP NOP NOP NOP		; print (optimized)
+										OUT CLC CLC NOP NOP NOP NOP NOP NOP NOP NOP		; print the sign
+	Dec64stack:			PLS CPI 0 BEQ Dec64exit					  ; read the numbers from the stack backwards (0 = end)
+										OUT CLC NOP NOP NOP NOP NOP NOP NOP NOP		; print (optimized)
 										JPA Dec64stack
 	Dec64exit:			 RTS
 
-; ***** Subroutine reading keyboard input until [ENTER] into memBuffer *****
-ReadLine:  		JPS readexit                        ; resets the LSB of int64ptr
-  readchar:   WIN                                 ; ... waiting for input other than 0
-              OUT                                 ; 6 output without sleeping, since the maximum receive rate is 115,2kHz anyway
-              NOP NOP NOP NOP                     ; 64 warten, damit nachfolgende Progs UART nicht stören (min. 160 cycles interval)
-              STR int64ptr                      	; 10
-              CPI 10                              ; 5 teste auf ENTER & BACKSPACE
-              BEQ readexit                        ; 5(6)
-              BCS nobackspace                     ; 6(5) ... backspace wäre "8"
-                DEB int64ptr                    	; BACKSPACE war's
-                CPI <memBuffer
-                BCS readchar
-                  NOP NOP NOP                         ; damit das SPACE korrekt gesendet wird
-                  LDI 32 OUT JPS WaitOnUART
-  nobackspace:  INB int64ptr                    	; 10
-                BCC readchar                      ; 6(5) maximale Anzahl von Zeichen wurde eingelesen
-  readexit:       LDI >memBuffer STA int64ptr+1 	; reset the line pointer
-                  LDI <memBuffer STA int64ptr+0
-                  RTS
+; ********************************************************************************************
+; Reading in keyboard input into OS_Buffer until [ENTER] or end of buffer is hit
+; ********************************************************************************************
+ReadLine:  			JPS readexit                        ; resets the LSB of lineptr
+  readchar:   	WIN                                 ; >= 10... waiting for input other than 0
+              	OUT                                 ; 4 output without sleeping, since the maximum receive rate is 115,2kHz anyway
+              	STR lineptr                      		; 10
+              	CPI 10 BEQ readexit                 ; 10 teste auf ENTER & BACKSPACE
+              	BCS nobackspace                     ; 6(5) ... backspace wäre "8"
+                	DEB lineptr                    		; 10 BACKSPACE war's
+                	CPI <OS_Buffer                    ; 5
+                	BCS readchar                      ; 6(5)
+                  	NOP NOP NOP NOP NOP NOP NOP     ; 112
+                  	LDI 32 OUT                      ; 8 backspace kompensieren (siehe auch nä. Zeile), JPS OS_WaitUART ist nicht nötig
+  nobackspace:  	INB lineptr                    		; 10 kompensiert auch den line pointer
+                	BPL readchar                      ; 6(5) maximale Anzahl von Zeichen wurde eingelesen
+  readexit:       	LDI >OS_Buffer STA lineptr+1 		; 12 reset the line pointer
+                  	LDI <OS_Buffer STA lineptr+0 		; 12                 
+                  	NOP NOP NOP NOP NOP NOP         ; 96
+                  	RTS                             ; 14
 
-WaitOnUART:    	NOP NOP NOP NOP NOP NOP NOP NOP ; Waits for a UART transmission to complete, Ziel: min. 160 cycles = 10 x 16 cycles, Ist: 128 + 30 + 6(8) = 164(166) inkl. calling OUT (STA $8xxx)
+; ***************************************************
+; ***** Wait until UART circuit has sent a char *****
+; ***************************************************
+WaitUART:    		NOP NOP NOP NOP NOP NOP NOP NOP    ; Waits for a UART transmission to complete, Ziel: min. 160 cycles = 10 x 16 cycles, Ist: 128 + 30 + 4 = 162 inkl. calling OUT
                 RTS
 
+; **************************************************
 ; ***** Schreibt einen nullterminierten String *****
-PrintText: 		LDS -1 STA int64ptr+0
-            	LDS -2 STA int64ptr+1 	         	; get LSB and MSB
-  printloop:  LDR int64ptr CPI 0	    	        ; Print routine
-							BEQ printend          		        ; string zuende?
-            	  OUT JPS WaitOnUART
-        		    INW int64ptr         		        ; zeige auf das nächste Zeichen
-     		        JPA printloop
-  printend:	  RTS
+; **************************************************
+PrintText: 			LDS -1 STA int64ptr+0 LDS -2 STA int64ptr+1 ; get the data
+	printloop:  	LDR int64ptr CPI 0	    	            ; Print routine
+								BEQ printend          		            ; string zuende?
+            	  	OUT JPS WaitUART
+        		    	INW int64ptr         		            ; zeige auf das nächste Zeichen
+									JPA printloop
+  printend:	  	RTS
 
-*=$7e00
+calctext:				27, "[H", 27, "[J", "64-BIT INTEGER CALCULATOR", 10, 10, 0
+errortext:			"ERROR", 0
 
-int64A:				  0, 0, 0, 0, 0, 0, 0, 0, 0
+								#end
+
+*=$7dff					int64stack:                         ; (free) top position of the internal math stack
+*=$7e00                                             ; 64-bit math library memory
+int64A:				  0, 0, 0, 0, 0, 0, 0, 0              ; 64-bit math registers
+	int64Acarry:	0
 int64B:				  0, 0, 0, 0, 0, 0, 0, 0
 int64C:				  0, 0, 0, 0, 0, 0, 0, 0, 0
 int64E:				  0, 0, 0, 0, 0, 0, 0, 0
-int64ptr:			  $0000
+int64ptr:			  $0000                               ; multi-purpose variables
 int64count:		  0
-int64nflag:		  0
+int64nflag:		  
+int64valid:			0
+int64stackptr:	$0000                               ; stack pointer to next free space on the math stack (must be initialized)
 
-MyA:						$00, $00, $00, $00, $00, $00, $00, $00
-MyB:						$00, $00, $00, $00, $00, $00, $00, $00
+lineptr:				$0000																; current parsing position
 
-*=$7e90
+*=$7f10					OS_Buffer:			                    ; OS line input buffer
 
-memBuffer:			; OS line input buffer
-
+								#begin
+								
 *=$2000
