@@ -1,6 +1,6 @@
 # Minimal UART Computer - older version with EEPROMs
 
-Current cersion: https://github.com/slu4coder/Minimal-UART-CPU-FLASH-Edition
+Current version: https://github.com/slu4coder/Minimal-UART-CPU-FLASH-Edition
 
 Hi there, I built my own Computer from scratch - using nothing but TTL chips, because, well, that's what I wanted to do, I guess! I wanted
 a CPU that is easy to understand, fun to build and powerful enough to allow for programming educational stuff and little games on it.
